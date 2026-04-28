@@ -1,0 +1,10 @@
+# Backend API Dependencies
+# Install these with: pip install -r requirements.txt
+
+flask              # Web framework
+flask-cors         # Allow cross-origin requests from frontend
+Pillow             # Image processing
+google-genai       # Gemini AI
+python-dotenv      # Load .env files
+pydantic           # Data validation
+graphviz           # Graph visualization
