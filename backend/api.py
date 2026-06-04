@@ -153,10 +153,11 @@ def generate_paths():
         # Convert edges from list format to tuple format
         edges = [tuple(edge) for edge in data['edges']]
         session_id = data.get('session_id', 'default')
+        test_depth_level = data.get('test_depth_level', 1)
 
         # Use PathGenerator to find edge coverage paths
-        pathgenerator = PathGenerator(edges)
-        edge_coverage_paths = pathgenerator.run_test_level_depth_1_coverage()
+        pathgenerator = PathGenerator(edges, test_depth_level)
+        edge_coverage_paths = pathgenerator.run()
         print('paths found')
         print(edge_coverage_paths)
 

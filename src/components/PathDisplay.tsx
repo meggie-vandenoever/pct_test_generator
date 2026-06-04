@@ -34,6 +34,7 @@ interface PathDisplayProps {
   coloredGraph: string; // Base64 encoded
   numPaths: number;
   onReset: () => void;
+  onBackToCompare: () => void;
 }
 
 // Same colors used in the Python get_colored_graph function
@@ -55,6 +56,7 @@ export default function PathDisplay({
   coloredGraph,
   numPaths,
   onReset,
+  onBackToCompare,
 }: PathDisplayProps) {
   return (
     <div className="space-y-8">
@@ -80,8 +82,8 @@ export default function PathDisplay({
           <div>
             <h2 className="text-2xl font-bold">Complete!</h2>
             <p className="text-green-100">
-              {numPaths} test path{numPaths !== 1 ? "s" : ""} needed for
-              test depth level-1
+              {numPaths} test path{numPaths !== 1 ? "s" : ""} needed for test
+              depth level-1
             </p>
           </div>
         </div>
@@ -191,9 +193,15 @@ export default function PathDisplay({
         </div>
       </div>
 
-
       {/* Action buttons */}
-      <div className="flex justify-center">
+      <div className="flex justify-center gap-4">
+        <button
+          onClick={onBackToCompare}
+          className="px-6 py-3 border border-blue-600 text-blue-600 rounded-lg 
+                     hover:bg-blue-50 transition-colors font-medium"
+        >
+          Change Test Depth Level
+        </button>
         <button
           onClick={onReset}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg 
