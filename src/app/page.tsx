@@ -120,7 +120,7 @@ export default function Home() {
    *
    * When the user accepts the graph, we calculate the edge coverage paths
    */
-  const handleAccept = async () => {
+  const handleAccept = async (testDepthLevel: number) => {
     if (!analysisResult) return;
 
     setIsLoading(true);
@@ -135,6 +135,7 @@ export default function Home() {
         body: JSON.stringify({
           edges: analysisResult.edges,
           session_id: analysisResult.sessionId,
+          test_depth_level: testDepthLevel,
         }),
       });
 
@@ -294,6 +295,7 @@ export default function Home() {
             coloredGraph={pathResult.coloredGraph}
             numPaths={pathResult.numPaths}
             onReset={handleReset}
+            onBackToCompare={() => setCurrentStep("compare")}
           />
         )}
       </div>

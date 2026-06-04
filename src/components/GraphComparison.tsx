@@ -32,7 +32,7 @@ interface GraphComparisonProps {
   originalImage: string; // Base64 encoded
   graphImage: string; // Base64 encoded
   edges: [string, string, string][]; // Array of [source, label, target]
-  onAccept: () => void;
+  onAccept: (testDepthLevel: number) => void;
   onReject: (feedback: string) => void;
   onReset: () => void;
 }
@@ -48,6 +48,9 @@ export default function GraphComparison({
   // State for the feedback modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
+
+  // State for test depth level selection
+  const [testDepthLevel, setTestDepthLevel] = useState(1);
 
   const handleRejectSubmit = () => {
     if (feedback.trim()) {
@@ -146,23 +149,53 @@ export default function GraphComparison({
       </div>
 
       {/* Action buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+      <div className="flex flex-col gap-4 items-center">
+        {/* Top row: Start Over and Regenerate buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button
+            onClick={onReset}
+            className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 
+                       hover:bg-gray-50 transition-colors font-medium"
+          >
+            Start Over
+          </button>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-6 py-3 border border-red-300 rounded-lg text-red-700 
+                       hover:bg-red-50 transition-colors font-medium"
+          >
+            Not Correct - Regenerate
+          </button>
+        </div>
+
+        {/* Test depth level selection */}
+        <div className="flex items-center gap-6 py-2">
+          <span className="text-sm font-medium text-gray-700">
+            Test Depth Level:
+          </span>
+          <div className="flex gap-4">
+            {[1, 2, 3].map((level) => (
+              <label
+                key={level}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <input
+                  type="radio"
+                  name="testDepthLevel"
+                  value={level}
+                  checked={testDepthLevel === level}
+                  onChange={() => setTestDepthLevel(level)}
+                  className="w-4 h-4 text-green-600 focus:ring-green-500"
+                />
+                <span className="text-sm text-gray-700">Level {level}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Accept button */}
         <button
-          onClick={onReset}
-          className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 
-                     hover:bg-gray-50 transition-colors font-medium"
-        >
-          Start Over
-        </button>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="px-6 py-3 border border-red-300 rounded-lg text-red-700 
-                     hover:bg-red-50 transition-colors font-medium"
-        >
-          Not Correct - Regenerate
-        </button>
-        <button
-          onClick={onAccept}
+          onClick={() => onAccept(testDepthLevel)}
           className="px-6 py-3 bg-green-600 text-white rounded-lg 
                      hover:bg-green-700 transition-colors font-medium"
         >
