@@ -14,25 +14,56 @@ from collections import Counter
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), '..', 'results')
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
+POSITION_SCALE = 5.0
 
-def get_graph(edges, graph_name='graph'):
+
+def _add_positioned_nodes(dot, vertices, vertex_positions):
+    """
+    add nodes to the graph with their positions.
+    """
+    for vertex in vertices:
+        if vertex in vertex_positions:
+            x, y = vertex_positions[vertex]
+            gv_x = (x / 100.0) * POSITION_SCALE
+            gv_y = ((100 - y) / 100.0) * POSITION_SCALE
+            dot.node(str(vertex), str(vertex), pos=f"{gv_x},{gv_y}!")
+        else:
+            dot.node(str(vertex), str(vertex))
+
+
+def get_graph(edges, graph_name='graph', vertex_positions=None):
     """
     create graph visualization from a list of edges
     
     Args:
         edges: List of tuples (source, label, destination)
         graph_name: Name for the output file
+        vertex_positions: Optional dict mapping vertex labels to (x, y) coordinates (0-100 scale)
     """
-    dot = graphviz.Digraph()
-    for edge in edges:
-        dot.edge(str(edge[0]), str(edge[2]), label=str(edge[1]))
+    if vertex_positions:
+        dot = graphviz.Digraph(engine='neato')
+        dot.attr(overlap='false', splines='true')
+        
+        vertices = set()
+        for edge in edges:
+            vertices.add(str(edge[0]))
+            vertices.add(str(edge[2]))
+        
+        _add_positioned_nodes(dot, vertices, vertex_positions)
+        
+        for edge in edges:
+            dot.edge(str(edge[0]), str(edge[2]), label=str(edge[1]))
+    else:
+        dot = graphviz.Digraph()
+        for edge in edges:
+            dot.edge(str(edge[0]), str(edge[2]), label=str(edge[1]))
     
     output_path = os.path.join(RESULTS_DIR, graph_name)
     dot.render(output_path, format='png')
     return output_path + '.png'
 
 
-def get_colored_graph(paths, edges_extra=[], graph_name='graph'):
+def get_colored_graph(paths, edges_extra=[], graph_name='graph', vertex_positions=None):
     """
     create a graph visualization with color-coded paths
     
@@ -40,9 +71,26 @@ def get_colored_graph(paths, edges_extra=[], graph_name='graph'):
         paths: List of paths, where each path is a list of edges
         edges_extra: Additional edges to draw in black
         graph_name: Name for the output file
+        vertex_positions: Optional dict mapping vertex labels to (x, y) coordinates (0-100 scale)
     """
     colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'cyan', 'magenta', 'gold', 'pink']
-    dot = graphviz.Digraph()
+    
+    if vertex_positions:
+        dot = graphviz.Digraph(engine='neato')
+        dot.attr(overlap='false', splines='true')
+        
+        vertices = set()
+        for path in paths:
+            for edge in path:
+                vertices.add(str(edge[0]))
+                vertices.add(str(edge[2]))
+        for edge in edges_extra:
+            vertices.add(str(edge[0]))
+            vertices.add(str(edge[2]))
+        
+        _add_positioned_nodes(dot, vertices, vertex_positions)
+    else:
+        dot = graphviz.Digraph()
     
     for index, path in enumerate(paths):
         color = colors[index % len(colors)]
@@ -55,7 +103,6 @@ def get_colored_graph(paths, edges_extra=[], graph_name='graph'):
     output_path = os.path.join(RESULTS_DIR, graph_name)
     dot.render(output_path, format='png')
     return output_path + '.png'
-
 
 class PathGenerator:
     """

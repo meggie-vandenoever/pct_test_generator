@@ -39,6 +39,7 @@ import PathDisplay from "@/components/PathDisplay";
 // TypeScript interface - defines the shape of our data
 interface AnalysisResult {
   edges: [string, string, string][]; // Array of [source, label, target] tuples
+  vertexPositions: Record<string, [number, number]>; // Map of vertex label to [x, y] position
   originalImage: string; // Base64 encoded image
   graphImage: string; // Base64 encoded image
   sessionId: string;
@@ -103,6 +104,7 @@ export default function Home() {
       // Update state with the results
       setAnalysisResult({
         edges: data.edges,
+        vertexPositions: data.vertex_positions || {},
         originalImage: data.original_image,
         graphImage: data.graph_image,
         sessionId: data.session_id,
@@ -134,6 +136,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           edges: analysisResult.edges,
+          vertex_positions: analysisResult.vertexPositions,
           session_id: analysisResult.sessionId,
           test_depth_level: testDepthLevel,
         }),
@@ -186,6 +189,7 @@ export default function Home() {
 
       setAnalysisResult({
         edges: data.edges,
+        vertexPositions: data.vertex_positions || {},
         originalImage: data.original_image,
         graphImage: data.graph_image,
         sessionId: data.session_id,

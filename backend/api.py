@@ -8,7 +8,7 @@ This file creates a REST API that:
 4. Calculates edge coverage test paths
 """
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
 from google import genai
@@ -18,7 +18,7 @@ import io
 import base64
 import json
 
-from models import Edge, Flowchart
+from models import Flowchart
 from graph import get_graph, get_colored_graph, PathGenerator
 
 load_dotenv()
@@ -76,7 +76,8 @@ def translate_flowchart():
         
         # Use Gemini AI to analyze the flowchart
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.5-flash", 
+            # model = "gemini-3.1-pro-preview",
             contents=[image, """Analyze this flowchart and identify ALL decision points.
             A decision point is any node that has MORE THAN ONE outgoing edge (i.e., multiple possible paths leaving it).
 
@@ -90,7 +91,21 @@ def translate_flowchart():
 
             If a branch leads to a node with no further decision point after it, use "End" as the target.
             Also include edges from "Start" to the first decision point, and from decision points to "End" where applicable.
-            So the first term of the first edge HAS to bo "Start"."""],
+            So the first term of the first edge HAS to be "Start".
+            
+            HANDLING DUPLICATE VERTEX NAMES:
+            If the flowchart has multiple nodes with the same text (e.g., multiple "End" nodes at different positions),
+            you MUST give each one a unique name by appending a number suffix.
+            For example: "End_1", "End_2", "End_3" for three different End nodes.
+            Use these unique names consistently in both the edges (source/target) and the vertices list.
+            
+            VERTEX POSITIONS:
+            For each unique vertex that appears in the edges (including Start and all End nodes), provide:
+            - label: The unique name of the vertex (must match source/target in edges exactly)
+            - x: The approximate x coordinate of the vertex center (0-100 scale, where 0 is left edge, 100 is right edge)
+            - y: The approximate y coordinate of the vertex center (0-100 scale, where 0 is top edge, 100 is bottom edge)
+            
+            This allows the graph visualization to match the original flowchart layout."""],
             config={
                 "response_mime_type": "application/json",
                 "response_schema": Flowchart
@@ -103,9 +118,12 @@ def translate_flowchart():
         if edges[0][0] != 'Start':
             edges = [('Start', '', edges[0][0])] + edges
         
-        # Generate the graph visualization
+        # Build vertex positions dictionary: label -> (x, y)
+        vertex_positions = {v.label: (v.x, v.y) for v in flowchart_object.vertices}
+        
+        # Generate the graph visualization with positions
         graph_filename = f"{image_filename}_graph"
-        get_graph(edges, graph_name=graph_filename)
+        get_graph(edges, graph_name=graph_filename, vertex_positions=vertex_positions)
         
         # Read the generated graph image and encode it as base64
         graph_path = os.path.join(RESULTS_DIR, f"{graph_filename}.png")
@@ -119,6 +137,7 @@ def translate_flowchart():
         return jsonify({
             "success": True,
             "edges": edges,
+            "vertex_positions": vertex_positions,
             "original_image": original_base64,
             "graph_image": graph_base64,
             "session_id": timestamp  # We'll use this to track this analysis
@@ -137,6 +156,7 @@ def generate_paths():
     Request body:
         {
             "edges": [["Start", "", "Decision1"], ["Decision1", "Yes", "End"], ...],
+            "vertex_positions": {"Start": [x, y], "Decision1": [x, y], ...},
             "session_id": "timestamp"
         }
     
@@ -154,6 +174,10 @@ def generate_paths():
         edges = [tuple(edge) for edge in data['edges']]
         session_id = data.get('session_id', 'default')
         test_depth_level = data.get('test_depth_level', 1)
+        
+        # Get vertex positions (convert from list to tuple if needed)
+        vertex_positions_raw = data.get('vertex_positions', {})
+        vertex_positions = {k: tuple(v) if isinstance(v, list) else v for k, v in vertex_positions_raw.items()}
 
         # Use PathGenerator to find edge coverage paths
         pathgenerator = PathGenerator(edges, test_depth_level)
@@ -163,7 +187,7 @@ def generate_paths():
 
         # Generate the colored graph showing the paths
         colored_graph_filename = f"flowchart_{session_id}_paths"
-        get_colored_graph(pathgenerator.edge_coverage_3syntax, graph_name=colored_graph_filename)
+        get_colored_graph(pathgenerator.edge_coverage_3syntax, graph_name=colored_graph_filename, vertex_positions=vertex_positions)
         
         # Read and encode the colored graph
         colored_graph_path = os.path.join(RESULTS_DIR, f"{colored_graph_filename}.png")
@@ -242,6 +266,18 @@ def regenerate_translation():
         Also include edges from "Start" to the first decision point, and from decision points to "End" where applicable.
         If a branch leads to a node with no further decision point after it, use "End" as the target.
         
+        HANDLING DUPLICATE VERTEX NAMES:
+        If the flowchart has multiple nodes with the same text (e.g., multiple "End" nodes at different positions),
+        you MUST give each one a unique name by appending a number suffix.
+        For example: "End_1", "End_2", "End_3" for three different End nodes.
+        Use these unique names consistently in both the edges (source/target) and the vertices list.
+        
+        VERTEX POSITIONS:
+        For each unique vertex that appears in the edges (including Start and all End nodes), provide:
+        - label: The unique name of the vertex (must match source/target in edges exactly)
+        - x: The approximate x coordinate of the vertex center (0-100 scale, where 0 is left edge, 100 is right edge)
+        - y: The approximate y coordinate of the vertex center (0-100 scale, where 0 is top edge, 100 is bottom edge)
+        
         PREVIOUS TRANSLATION (that needs correction):
         {previous_edges}
         
@@ -262,8 +298,11 @@ def regenerate_translation():
         flowchart_object = Flowchart.model_validate_json(response.text)
         edges = [(edge.source, edge.label, edge.target) for edge in flowchart_object.edges]
         
+        # Build vertex positions dictionary: label -> (x, y)
+        vertex_positions = {v.label: (v.x, v.y) for v in flowchart_object.vertices}
+        
         graph_filename = f"{image_filename}_graph"
-        get_graph(edges, graph_name=graph_filename)
+        get_graph(edges, graph_name=graph_filename, vertex_positions=vertex_positions)
         
         graph_path = os.path.join(RESULTS_DIR, f"{graph_filename}.png")
         with open(graph_path, 'rb') as f:
@@ -275,6 +314,7 @@ def regenerate_translation():
         return jsonify({
             "success": True,
             "edges": edges,
+            "vertex_positions": vertex_positions,
             "original_image": original_base64,
             "graph_image": graph_base64,
             "session_id": timestamp

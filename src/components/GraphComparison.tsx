@@ -26,7 +26,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface GraphComparisonProps {
   originalImage: string; // Base64 encoded
@@ -51,6 +51,63 @@ export default function GraphComparison({
 
   // State for test depth level selection
   const [testDepthLevel, setTestDepthLevel] = useState(1);
+
+  // State for draggable modal
+  const [modalPosition, setModalPosition] = useState({ x: 50, y: 50 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Handle mouse down on modal header to start dragging
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (modalRef.current) {
+      const rect = modalRef.current.getBoundingClientRect();
+      setDragOffset({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+      setIsDragging(true);
+    }
+  };
+
+  // Handle mouse move while dragging
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        setModalPosition({
+          x: e.clientX - dragOffset.x,
+          y: e.clientY - dragOffset.y,
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging, dragOffset]);
+
+  // Reset modal position when opening
+  useEffect(() => {
+    if (isModalOpen) {
+      // Center the modal initially - use requestAnimationFrame to avoid sync setState
+      requestAnimationFrame(() => {
+        setModalPosition({
+          x: window.innerWidth / 2 - 224, // half of max-w-lg (448px) / 2
+          y: window.innerHeight / 4,
+        });
+      });
+    }
+  }, [isModalOpen]);
 
   const handleRejectSubmit = () => {
     if (feedback.trim()) {
@@ -203,51 +260,62 @@ export default function GraphComparison({
         </button>
       </div>
 
-      {/* Feedback Modal */}
+      {/* Feedback Modal - Draggable without overlay */}
       {isModalOpen && (
-        // Modal overlay - fixed position covers entire screen
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          {/* Modal content */}
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              What&apos;s Wrong?
+        <div
+          ref={modalRef}
+          style={{
+            position: "fixed",
+            left: modalPosition.x,
+            top: modalPosition.y,
+            zIndex: 50,
+          }}
+          className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border border-gray-200"
+        >
+          {/* Draggable header */}
+          <div
+            onMouseDown={handleMouseDown}
+            className={`flex items-center justify-between mb-4 pb-3 border-b border-gray-200 ${
+              isDragging ? "cursor-grabbing" : "cursor-grab"
+            }`}
+          >
+            <h3 className="text-lg font-semibold text-gray-800 select-none">
+              Describe what&apos;s incorrect
             </h3>
-            <p className="text-gray-600 text-sm mb-4">
-              Please describe what&apos;s incorrect about the generated graph.
-              This feedback will be used to regenerate a better translation.
-            </p>
+          </div>
+          <p className="text-gray-600 text-sm mb-4">
+            This feedback will be used to regenerate a better translation.
+          </p>
 
-            {/* Textarea for feedback */}
-            <textarea
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              placeholder="E.g., The 'Yes' and 'No' labels are swapped on the second decision point..."
-              className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg 
-                         focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                         resize-none text-sm"
-            />
+          {/* Textarea for feedback */}
+          <textarea
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg 
+                       focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                       resize-none text-sm"
+          />
 
-            <div className="flex gap-3 justify-end mt-4">
-              <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setFeedback("");
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 
-                           hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRejectSubmit}
-                disabled={!feedback.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg 
-                           hover:bg-blue-700 transition-colors
-                           disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                Regenerate
-              </button>
-            </div>
+          <div className="flex gap-3 justify-end mt-4">
+            <button
+              onClick={() => {
+                setIsModalOpen(false);
+                setFeedback("");
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 
+                         hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleRejectSubmit}
+              disabled={!feedback.trim()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg 
+                         hover:bg-blue-700 transition-colors
+                         disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              Regenerate
+            </button>
           </div>
         </div>
       )}
